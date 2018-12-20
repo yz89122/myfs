@@ -4,6 +4,7 @@
 #include <stdlib.h>
 
 #include "myfs.h"
+#include "commands.h"
 
 struct my_partition* get_partition();
 
@@ -11,15 +12,19 @@ int main(int argc, char const *argv[])
 {
     struct my_partition* partition = get_partition();
 
+    if (partition == NULL) return 1;
+
     return my_sh(partition);
 }
 
 #define BUFFER_SIZE 512
 
-static int32_t read_line(char* dest, uint32_t size)
+int32_t read_line(char* dest, uint32_t size)
 {
     uint32_t count = 0;
-    char ch;
+    char ch = getchar();
+    if (ch != EOF) ungetc(ch, stdin);
+    else return -1;
     while ((count + 1) < size)
         if ((ch = getchar()) != EOF && ch != '\r' && ch != '\n') dest[count++] = ch;
         else break;
@@ -43,7 +48,7 @@ struct my_partition* get_partition()
     else
     {
         char* line = (char*) malloc(BUFFER_SIZE);
-        char *p, *q;
+        char* p;
         int32_t len;
         long num, unit = 1;
         bool virgin = true;
@@ -56,10 +61,10 @@ struct my_partition* get_partition()
             puts("(at least 5KB)");
             puts("(example '8192', '512KB', '20MB')");
             len = read_line(line, BUFFER_SIZE);
+            if (len == -1) return NULL;
             if (len == 0) continue;
             num = strtol(line, &p, 0);
             while (*p == ' ' && (p - line) < len) ++p;
-            q = p;
             if (*p != '\0')
             {
                 switch (*p)
@@ -76,7 +81,7 @@ struct my_partition* get_partition()
             break;
         }
         free(line);
-        printf("partition size = %d\n", num * unit);
+        printf("partition size = %ld\n", num * unit);
         return my_make_partition(num * unit);
     }
 }
