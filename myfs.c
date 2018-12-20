@@ -8,6 +8,8 @@
 #define MY_INODE_SIZE 128
 #define MY_BLOCK_SIZE 1 K
 
+#define BUFFER_SIZE 512
+
 struct my_partition* my_make_partition(uint32_t size)
 {
     if (size < 5 * MY_BLOCK_SIZE) return NULL;
@@ -48,7 +50,6 @@ struct my_partition* my_make_partition(uint32_t size)
     // printf("%d\n", partition->blocks);
     for (uint32_t i = 0; i < partition->blocks; ++i)
         my_mark_block_used(partition, i);
-    printf("a %d\n", my_get_free_block(partition));
 
     my_mark_inode_used(partition, 0);
     partition->root = 0;
@@ -193,11 +194,11 @@ struct my_directory_file_list* my_list_directory(
     uint32_t len = 1;
     uint32_t inode, type;
     int r;
-    char buffer[512];
+    char* buffer = (char*) malloc(BUFFER_SIZE);
     char *p, *q;
     while (len != 0)
     {
-        len = my_file_read_line(partition, directory, (uint8_t*) buffer, 512);
+        len = my_file_read_line(partition, directory, (uint8_t*) buffer, BUFFER_SIZE);
         if (len == 0 || len < 6) continue;
         q = p = buffer;
 
@@ -231,6 +232,7 @@ struct my_directory_file_list* my_list_directory(
         head = node;
     }
     my_file_close(partition, directory);
+    free(buffer);
     return head;
 }
 
@@ -271,17 +273,23 @@ bool my_dir_reference_file(
     struct my_directory_file_list* list = my_list_directory(partition, dir);
     if (strlen(filename) == 0 || my_get_file(partition, list, filename) != NULL)
     {
+        // if filename already exist or filename with length of 0
         my_free_directory_file_list(partition, list);
         return false;
     }
     my_free_directory_file_list(partition, list);
-    char buffer[512];
-    uint32_t line_len = snprintf(buffer, 512, "%x|%x|%s\n", file, type, filename);
+
+    char* buffer = (char*) malloc(BUFFER_SIZE);
+
+    uint32_t line_len = snprintf(buffer, BUFFER_SIZE, "%x|%x|%s\n", file, type, filename);
     if (line_len == 511) buffer[line_len++] = '\n';
     struct my_file* directory = my_file_open_end(partition, dir);
     my_file_write(partition, directory, (uint8_t*) buffer, line_len);
     my_file_close(partition, directory);
     ++(my_get_inode_pointer(partition, file)->reference_count);
+
+    free(buffer);
+
     return true;
 }
 
@@ -299,7 +307,7 @@ void my_dir_unreference_file(
     struct my_directory_file_list* iter = list;
     my_erase_file(partition, dir);
     struct my_file* directory = my_file_open(partition, dir);
-    uint8_t buffer[512];
+    uint8_t* buffer = (uint8_t*) malloc(BUFFER_SIZE);
     while (iter)
     {
         if (iter != file)
@@ -315,6 +323,7 @@ void my_dir_unreference_file(
         iter = iter->next;
     }
     my_file_close(partition, directory);
+    free(buffer);
     struct my_inode* inode = my_get_inode_pointer(partition, file->inode);
     --(inode->reference_count);
     if (inode->reference_count == 0)
@@ -433,7 +442,6 @@ uint32_t my_file_read_line(
     while (buffer_position + 1 < buffer_size &&
         file->position < file->inode->size)
     {
-    // puts("1");
         if (file->block_position >= partition->block_size) // without / and %
         // if reached block ending then go to next block
         {
@@ -449,21 +457,11 @@ uint32_t my_file_read_line(
             current_block = my_get_block_pointer(partition, file->block);
             file->block_position = 0;
         }
-    // puts("2");
-    // printf("buffer position %d\n", buffer_position);
-    // printf("block position %d\n", file->block_position);
-    // printf("file position %d\n", file->position);
-    // printf("buffer %x\n", buffer);
-    // printf("block %d\n", file->block);
         buffer[buffer_position] = current_block[file->block_position++];
-    // puts("3");
         ++file->position;
-    // puts("4");
         if (buffer[buffer_position++] == '\n') break;
-    // puts("5");
     }
     buffer[buffer_position] = '\0';
-    // puts("6");
     return buffer_position - 1;
 }
 
