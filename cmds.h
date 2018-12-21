@@ -57,5 +57,8 @@ void cmd_cat(
 void cmd_help(
     struct cwd* cwd,
     struct cmd_args* args);
+void cmd_status(
+    struct cwd* cwd,
+    struct cmd_args* args);
 
 #endif

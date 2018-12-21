@@ -19,6 +19,7 @@ const char* cmds[] = {
     "get",
     "cat",
     "help",
+    "status",
 };
 
 const void (*cmd_ptrs[])(struct cwd*, struct cmd_args*) = {
@@ -30,6 +31,7 @@ const void (*cmd_ptrs[])(struct cwd*, struct cmd_args*) = {
     cmd_get,
     cmd_cat,
     cmd_help,
+    cmd_status,
 };
 
 void cwd_append(struct cwd* cwd, char* dir_name, uint32_t inode)
@@ -185,6 +187,28 @@ int my_sh(struct my_partition* partition)
     cwd->partition = partition;
     cwd->next = NULL;
 
+    puts(
+        "             *     ,MMM8&&&.            *""\n"
+        "                  MMMM88&&&&&    .""\n"
+        "                 MMMM88&&&&&&&""\n"
+        "     *           MMM88&&&&&&&&""\n"
+        "                 MMM88&&&&&&&&""\n"
+        "                 'MMM88&&&&&&'""\n"
+        "                   'MMM8&&&'      *""\n"
+        "          |\\___/|""\n"
+        "          )     (             .              '""\n"
+        "         =\\     /=""\n"
+        "           )===(       *""\n"
+        "          /     \\""\n"
+        "          |     |""\n"
+        "         /       \\""\n"
+        "         \\       /""\n"
+        "  _/\\_/\\_/\\__  _/_/\\_/\\_/\\_/\\_/\\_/\\_/\\_/\\_/\\_""\n"
+        "  |  |  |  |( (  |  |  |  |  |  |  |  |  |  |""\n"
+        "  |  |  |  | ) ) |  |  |  |  |  |  |  |  |  |""\n"
+        "  |  |  |  |(_(  |  |  |  |  |  |  |  |  |  |""\n"
+        "  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |""\n"
+        "  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |");
     cmd_help(NULL, NULL);
 
     while (cont)
@@ -564,6 +588,19 @@ void cmd_help(
         "'put' put file into this space ship""\n"
         "'get' get file from the Apollo 11""\n"
         "'cat' meow?""\n"
+        "'status' show status of this awesome aircraft""\n"
         "'help' call 911""\n"
     );
+}
+
+void cmd_status(
+    struct cwd* cwd,
+    struct cmd_args* args)
+{
+    printf("partition size:\t%u\n", cwd->partition->size);
+    printf("total inodes:\t%u\n", cwd->partition->inode_count);
+    printf("used inodes:\t%u\n", cwd->partition->inode_used);
+    printf("total blocks:\t%u\n", cwd->partition->block_count);
+    printf("used blocks:\t%u\n", cwd->partition->block_used);
+    printf("block size:\t%u\n", cwd->partition->block_size);
 }
