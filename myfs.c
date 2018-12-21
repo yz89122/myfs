@@ -261,6 +261,7 @@ struct my_directory_file_list* my_get_file(
     struct my_partition* partition,
     struct my_directory_file_list* file_list, const char* filename)
 {
+    if (filename == NULL) return NULL;
     while (file_list)
         if (strcmp(file_list->filename, filename) == 0) break;
         else file_list = file_list->next;
@@ -463,7 +464,7 @@ uint32_t my_file_read_line(
         if (buffer[buffer_position++] == '\n') break;
     }
     buffer[buffer_position] = '\0';
-    return buffer_position - 1;
+    return buffer_position;
 }
 
 uint32_t my_file_write(
