@@ -2,7 +2,7 @@ CC=gcc
 ARGS="-Wall"
 
 a.out: main.o myfs.o commands.o utils.o
-	$(CC) $(ARGS) main.o myfs.o commands.o utils.o
+	$(CC) $(ARGS) main.o myfs.o commands.o utils.o -o a.out
 	strip a.out
 
 myfs.o: myfs.c myfs.h
