@@ -39,6 +39,12 @@ void cmd_cd(
 void cmd_ls(
     struct cwd* cwd,
     struct cmd_args* args);
+void cmd_rm(
+    struct cwd* cwd,
+    struct cmd_args* args);
+void cmd_mkdir(
+    struct cwd* cwd,
+    struct cmd_args* args);
 void cmd_put(
     struct cwd* cwd,
     struct cmd_args* args);

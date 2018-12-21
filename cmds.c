@@ -13,6 +13,8 @@
 const char* cmds[] = {
     "cd",
     "ls",
+    "rm",
+    "mkdir",
     "put",
     "get",
     "cat",
@@ -22,6 +24,8 @@ const char* cmds[] = {
 const void (*cmd_ptrs[])(struct cwd*, struct cmd_args*) = {
     cmd_cd,
     cmd_ls,
+    cmd_rm,
+    cmd_mkdir,
     cmd_put,
     cmd_get,
     cmd_cat,
@@ -276,12 +280,59 @@ void cmd_ls(
         while (tmp)
         {
             if (long_list) {}
+            else if (tmp->type == MY_TYPE_DIR)
+                printf(C_BLU "%s " C_RST, tmp->filename);
             else printf("%s ", tmp->filename);
             tmp = tmp->next;
         }
         printf("\n");
 
         my_free_directory_file_list(cwd->partition, list);
+    }
+}
+
+void cmd_rm(
+    struct cwd* cwd,
+    struct cmd_args* args)
+{}
+
+void cmd_mkdir(
+    struct cwd* cwd,
+    struct cmd_args* args)
+{
+    args = args->next;
+    if (args == NULL || strlen(args->arg) == 0)
+    {
+        puts("usage: mkdir <dir>");
+        return;
+    }
+    // copy & paste are faster and easier than writing a loop :P
+    if (strchr(args->arg, '\n'))
+    {
+        puts("doesn't support character '\\n' yet");
+        return;
+    }
+    // copy & paste are faster and easier than writing a loop :P
+    if (strchr(args->arg, '/'))
+    {
+        puts("doesn't support character '/' yet");
+        return;
+    }
+    // copy & paste are faster and easier than writing a loop :P
+    if (strchr(args->arg, '\\'))
+    {
+        puts("doesn't support character '\\' yet");
+        return;
+    }
+    uint32_t dir;
+    if (cwd->next) dir = get_cwd(cwd)->inode;
+    else dir = cwd->partition->root;
+    uint32_t inode = my_touch(cwd->partition);
+    if (my_dir_reference_file(cwd->partition, dir, inode, MY_TYPE_DIR, args->arg));
+    else
+    {
+        my_delete_file(cwd->partition, inode);
+        puts("mkdir: already exist");
     }
 }
 
@@ -336,10 +387,14 @@ void cmd_put(
         struct my_file* mfp = my_file_open(cwd->partition, inode);
         uint8_t* buffer = (uint8_t*) malloc(FILE_BUFFER_SIZE);
         size_t len;
-        uint32_t my_len;
         while ((len = fread((void*) buffer, sizeof(*buffer), FILE_BUFFER_SIZE, fp)))
             if (my_file_write(cwd->partition, mfp, buffer, len) == 0) break;
         my_file_close(cwd->partition, mfp);
+    }
+    else
+    {
+        my_delete_file(cwd->partition, inode);
+        puts("put: already exist");
     }
 
     fclose(fp);
@@ -454,8 +509,10 @@ void cmd_help(
         "btw, you can try the following commands""\n"
         "'ls' list directory""\n"
         "'cd' change directory""\n"
-        "'put' put file into this shit""\n"
-        "'get' get file from this shit""\n"
+        "'rm' remove""\n"
+        "'mkdir' make directory""\n"
+        "'put' put file into this space ship""\n"
+        "'get' get file from the Apollo 11""\n"
         "'cat' meow?""\n"
         "'help' call 911""\n"
     );
