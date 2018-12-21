@@ -8,7 +8,9 @@
 #include "myfs.h"
 #include "cmds.h"
 
-char* cmds[] = {
+#define FILE_BUFFER_SIZE 4096
+
+const char* cmds[] = {
     "cd",
     "ls",
     "put",
@@ -17,7 +19,7 @@ char* cmds[] = {
     "help",
 };
 
-void (*cmd_ptrs[])(struct cwd*, struct cmd_args*) = {
+const void (*cmd_ptrs[])(struct cwd*, struct cmd_args*) = {
     cmd_cd,
     cmd_ls,
     cmd_put,
@@ -208,6 +210,13 @@ int my_sh(struct my_partition* partition)
     return 0;
 }
 
+static struct cwd_node* get_cwd(struct cwd* cwd)
+{
+    struct cwd_node* node = cwd->next;
+    if (node) while (node->next) node = node->next;
+    return node;
+}
+
 void cmd_cd(
     struct cwd* cwd,
     struct cmd_args* args)
@@ -234,9 +243,11 @@ void cmd_ls(
                 puts(
                     "yo""\n"
                     "do ya need help?""\n"
+                    "\n"
+                    "options:""\n"
                     "\t""-l""\t""use a long listing format""\n"
                     "\n"
-                    "'ls' v1 by Yz :D"
+                    "'ls' v1 by Yz :D""\n"
                 );
                 return;
             }
@@ -268,6 +279,7 @@ void cmd_ls(
             else printf("%s ", tmp->filename);
             tmp = tmp->next;
         }
+        printf("\n");
 
         my_free_directory_file_list(cwd->partition, list);
     }
@@ -276,7 +288,62 @@ void cmd_ls(
 void cmd_put(
     struct cwd* cwd,
     struct cmd_args* args)
-{}
+{
+    if (args->next == NULL)
+    {
+        puts("usage: put <file from real world> [new name in myfs]");
+        return;
+    }
+    args = args->next;
+    char* filename;
+    if (args->next && strlen(args->next->arg) > 0)
+    {
+        // copy & paste are faster and easier than writing a loop :P
+        if (strchr(args->next->arg, '\n'))
+        {
+            puts("doesn't support character '\\n' yet");
+            return;
+        }
+        // copy & paste are faster and easier than writing a loop :P
+        if (strchr(args->next->arg, '/'))
+        {
+            puts("doesn't support character '/' yet");
+            return;
+        }
+        // copy & paste are faster and easier than writing a loop :P
+        if (strchr(args->next->arg, '\\'))
+        {
+            puts("doesn't support character '\\' yet");
+            return;
+        }
+        // sometimes
+        filename = args->next->arg;
+    }
+    else filename = args->arg;
+    FILE* fp = fopen(args->arg, "rb");
+    if (fp == NULL)
+    {
+        printf("failed to read file '%s'\n", args->next->arg);
+        return;
+    }
+    uint32_t inode = my_touch(cwd->partition);
+    uint32_t dir;
+    if (cwd->next) dir = get_cwd(cwd)->inode;
+    else dir = cwd->partition->root;
+
+    if (my_dir_reference_file(cwd->partition, dir, inode, MY_TYPE_FILE, filename))
+    {
+        struct my_file* mfp = my_file_open(cwd->partition, inode);
+        uint8_t* buffer = (uint8_t*) malloc(FILE_BUFFER_SIZE);
+        size_t len;
+        uint32_t my_len;
+        while ((len = fread((void*) buffer, sizeof(*buffer), FILE_BUFFER_SIZE, fp)))
+            if (my_file_write(cwd->partition, mfp, buffer, len) == 0) break;
+        my_file_close(cwd->partition, mfp);
+    }
+
+    fclose(fp);
+}
 
 void cmd_get(
     struct cwd* cwd,
@@ -286,7 +353,93 @@ void cmd_get(
 void cmd_cat(
     struct cwd* cwd,
     struct cmd_args* args)
-{}
+{
+    const char * const cat = ""
+    "             *     ,MMM8&&&.            *""\n"
+    "                  MMMM88&&&&&    .""\n"
+    "                 MMMM88&&&&&&&""\n"
+    "     *           MMM88&&&&&&&&""\n"
+    "                 MMM88&&&&&&&&""\n"
+    "                 'MMM88&&&&&&'""\n"
+    "                   'MMM8&&&'      *""\n"
+    "          |\\___/|""\n"
+    "         =) ^Y^ (=            .              '""\n"
+    "          \\  ^  /""\n"
+    "           )=*=(       *""\n"
+    "          /     \\""\n"
+    "          |     |""\n"
+    "         /| | | |\\""\n"
+    "         \\| | |_|/\\""\n"
+    "  _/\\_/\\_//_// ___/\\_/\\_/\\_/\\_/\\_/\\_/\\_/\\_/\\_""\n"
+    "  |  |  |  | \\_) |  |  |  |  |  |  |  |  |  |""\n"
+    "  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |""\n"
+    "  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |""\n"
+    "  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |""\n"
+    "  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |";
+    if (args->next == NULL)
+    {
+        puts("usage: cat <filename>");
+        puts("usage: cat -n <filename>");
+        puts(cat);
+        return;
+    }
+    else if (strcmp((args = args->next)->arg, "-n") == 0)
+    {
+        if (args->next == NULL)
+        {
+            puts("usage: cat <filename>");
+            puts("usage: cat -n <filename>");
+            puts(cat);
+            return;
+        }
+        args = args->next;
+        uint32_t dir;
+        if (cwd->next) dir = get_cwd(cwd)->inode;
+        else dir = cwd->partition->root;
+        struct my_directory_file_list* list = my_list_directory(cwd->partition, dir);
+        struct my_directory_file_list* tmp = my_get_file(cwd->partition, list, args->arg);
+        if (tmp == NULL) printf("file was eaten by this cat\n%s", cat);
+        else if (tmp->type == MY_TYPE_DIR) puts(cat);
+        else
+        {
+            struct my_file* fp = my_file_open(cwd->partition, tmp->inode);
+            uint32_t len, line = 0;
+            uint8_t* buffer = (uint8_t*) malloc(FILE_BUFFER_SIZE);
+            while ((len = my_file_read_line(cwd->partition, fp, buffer, FILE_BUFFER_SIZE - 1)))
+            {
+                // buffer[len] = '\0';
+                if (buffer[len - 1] == '\n') buffer[len - 1] = '\0';
+                else buffer[len] = '\0';
+                printf("%05d %s\n", line++, buffer);
+            }
+            my_file_close(cwd->partition, fp);
+        }
+        my_free_directory_file_list(cwd->partition, list);
+    }
+    else
+    {
+        uint32_t dir;
+        if (cwd->next) dir = get_cwd(cwd)->inode;
+        else dir = cwd->partition->root;
+        struct my_directory_file_list* list = my_list_directory(cwd->partition, dir);
+        struct my_directory_file_list* tmp = my_get_file(cwd->partition, list, args->arg);
+        if (tmp == NULL) printf("file was eaten by this cat\n%s", cat);
+        else if (tmp->type == MY_TYPE_DIR) puts(cat);
+        else
+        {
+            struct my_file* fp = my_file_open(cwd->partition, tmp->inode);
+            uint32_t len;
+            uint8_t* buffer = (uint8_t*) malloc(FILE_BUFFER_SIZE);
+            while ((len = my_file_read(cwd->partition, fp, buffer, FILE_BUFFER_SIZE - 1)))
+            {
+                buffer[len] = '\0';
+                printf("%s", buffer);
+            }
+            my_file_close(cwd->partition, fp);
+        }
+        my_free_directory_file_list(cwd->partition, list);
+    }
+}
 
 void cmd_help(
     struct cwd* cwd,
