@@ -61,7 +61,7 @@ struct command_args* get_args_from_stdin()
                 if (quote != '\'' || !in_quote)
                 {
                     ch = getchar();
-                    if (ch == '\r' || ch == '\n') ch == '\0';
+                    if (ch == '\r' || ch == '\n') ch = '\0';
                 }
                 goto default_;
             case ' ':
