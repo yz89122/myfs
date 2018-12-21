@@ -50,12 +50,12 @@ struct my_file
     uint32_t block_position;
 };
 
-struct my_directory_file_list
+struct my_dir_list
 {
     uint8_t type;
     char filename[512];
     uint32_t inode;
-    struct my_directory_file_list* next;
+    struct my_dir_list* next;
 };
 
 struct my_partition* my_make_partition(uint32_t size);
@@ -83,14 +83,14 @@ void my_mark_block_used(
 void my_mark_block_unused(
     struct my_partition* partition, uint32_t block);
 
-struct my_directory_file_list* my_list_directory(
+struct my_dir_list* my_ls_dir(
     struct my_partition* partition, uint32_t dir);
-struct my_directory_file_list* my_get_file(
+struct my_dir_list* my_get_file(
     struct my_partition* partition,
-    struct my_directory_file_list* file_list, const char* filename);
+    struct my_dir_list* file_list, const char* filename);
 void my_free_directory_file_list(
     struct my_partition* partition,
-    struct my_directory_file_list* list);
+    struct my_dir_list* list);
 
 uint32_t my_touch(
     struct my_partition* partition);

@@ -259,7 +259,7 @@ void cmd_ls(
     struct cmd_args* a = args->next;
     uint32_t inode, len;
     struct cwd_node* node = cwd->next;
-    struct my_directory_file_list *list, *tmp;
+    struct my_dir_list *list, *tmp;
 
     while (a)
     {
@@ -299,7 +299,7 @@ void cmd_ls(
             while (node->next) node = node->next;
             inode = node->inode;
         }
-        tmp = list = my_list_directory(cwd->partition, inode);
+        tmp = list = my_ls_dir(cwd->partition, inode);
 
         while (tmp)
         {
@@ -318,7 +318,14 @@ void cmd_ls(
 void cmd_rm(
     struct cwd* cwd,
     struct cmd_args* args)
-{}
+{
+    args = args->next;
+    if (args == NULL || strlen(args->arg) == 0)
+    {
+        puts("remove what??");
+        return;
+    }
+}
 
 void cmd_mkdir(
     struct cwd* cwd,
@@ -442,8 +449,8 @@ void cmd_get(
     if (cwd->next) dir = get_cwd(cwd)->inode;
     else dir = cwd->partition->root;
 
-    struct my_directory_file_list* list = my_list_directory(cwd->partition, dir);
-    struct my_directory_file_list* tmp = my_get_file(cwd->partition, list, args->arg);
+    struct my_dir_list* list = my_ls_dir(cwd->partition, dir);
+    struct my_dir_list* tmp = my_get_file(cwd->partition, list, args->arg);
     char* err = NULL;
     if (tmp == NULL) err = "not exist";
     else if (tmp->type == MY_TYPE_DIR) err = "it's a directory";
@@ -525,8 +532,8 @@ void cmd_cat(
         uint32_t dir;
         if (cwd->next) dir = get_cwd(cwd)->inode;
         else dir = cwd->partition->root;
-        struct my_directory_file_list* list = my_list_directory(cwd->partition, dir);
-        struct my_directory_file_list* tmp = my_get_file(cwd->partition, list, args->arg);
+        struct my_dir_list* list = my_ls_dir(cwd->partition, dir);
+        struct my_dir_list* tmp = my_get_file(cwd->partition, list, args->arg);
         if (tmp == NULL) printf("file was eaten by this cat\n%s", cat);
         else if (tmp->type == MY_TYPE_DIR) puts(cat);
         else
@@ -550,8 +557,8 @@ void cmd_cat(
         uint32_t dir;
         if (cwd->next) dir = get_cwd(cwd)->inode;
         else dir = cwd->partition->root;
-        struct my_directory_file_list* list = my_list_directory(cwd->partition, dir);
-        struct my_directory_file_list* tmp = my_get_file(cwd->partition, list, args->arg);
+        struct my_dir_list* list = my_ls_dir(cwd->partition, dir);
+        struct my_dir_list* tmp = my_get_file(cwd->partition, list, args->arg);
         if (tmp == NULL) printf("file was eaten by this cat\n%s", cat);
         else if (tmp->type == MY_TYPE_DIR) puts(cat);
         else

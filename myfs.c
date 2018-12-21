@@ -187,11 +187,11 @@ void my_mark_block_unused(struct my_partition* partition, uint32_t block)
     }
 }
 
-struct my_directory_file_list* my_list_directory(
+struct my_dir_list* my_ls_dir(
     struct my_partition* partition, uint32_t dir)
 {
     struct my_file* directory = my_file_open(partition, dir);
-    struct my_directory_file_list *head = NULL, *node;
+    struct my_dir_list *head = NULL, *node;
     uint32_t len = 1;
     uint32_t inode, type;
     int r;
@@ -225,7 +225,7 @@ struct my_directory_file_list* my_list_directory(
         *p = '\0';
 
         // linked list
-        node = (struct my_directory_file_list*) malloc(sizeof(struct my_directory_file_list));
+        node = (struct my_dir_list*) malloc(sizeof(struct my_dir_list));
         node->inode = inode;
         node->type = type;
         strcpy(node->filename, q);
@@ -238,9 +238,9 @@ struct my_directory_file_list* my_list_directory(
 }
 
 void my_free_directory_file_list(
-    struct my_partition* partition, struct my_directory_file_list* list)
+    struct my_partition* partition, struct my_dir_list* list)
 {
-    struct my_directory_file_list* next;
+    struct my_dir_list* next;
     while (list)
     {
         next = list->next;
@@ -257,9 +257,9 @@ uint32_t my_touch(struct my_partition* partition)
     return inode;
 }
 
-struct my_directory_file_list* my_get_file(
+struct my_dir_list* my_get_file(
     struct my_partition* partition,
-    struct my_directory_file_list* file_list, const char* filename)
+    struct my_dir_list* file_list, const char* filename)
 {
     if (filename == NULL) return NULL;
     while (file_list)
@@ -272,7 +272,7 @@ bool my_dir_reference_file(
     struct my_partition* partition,
     uint32_t dir, uint32_t file, uint8_t type, const char* filename)
 {
-    struct my_directory_file_list* list = my_list_directory(partition, dir);
+    struct my_dir_list* list = my_ls_dir(partition, dir);
     if (strlen(filename) == 0 || my_get_file(partition, list, filename) != NULL)
     {
         // if filename already exist or filename with length of 0
@@ -299,14 +299,14 @@ void my_dir_unreference_file(
     struct my_partition* partition,
     uint32_t dir, const char* filename)
 {
-    struct my_directory_file_list* list = my_list_directory(partition, dir);
-    struct my_directory_file_list* file = my_get_file(partition, list, filename);
+    struct my_dir_list* list = my_ls_dir(partition, dir);
+    struct my_dir_list* file = my_get_file(partition, list, filename);
     if (file == NULL)
     {
         my_free_directory_file_list(partition, list);
         return;
     }
-    struct my_directory_file_list* iter = list;
+    struct my_dir_list* iter = list;
     my_erase_file(partition, dir);
     struct my_file* directory = my_file_open(partition, dir);
     uint8_t* buffer = (uint8_t*) malloc(BUFFER_SIZE);
