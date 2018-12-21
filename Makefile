@@ -17,3 +17,5 @@ main.o: main.c myfs.h cmds.h utils.h
 utils.o: utils.h utils.c
 	$(CC) $(ARGS) -c utils.c -o utils.o
 
+clean:
+	rm *.o a.out
