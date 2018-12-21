@@ -3,27 +3,42 @@
 
 #include "myfs.h"
 
-struct command_args
+struct cmd_args
 {
     char* arg;
-    struct command_args* next;
+    struct cmd_args* next;
 };
 
 struct cwd
 {
-    char* dir;
-    struct cwd* next;
+    struct my_partition* partition;
+    struct cwd_node* next;
+};
+
+struct cwd_node
+{
+    char* dir_name;
+    uint32_t inode;
+    struct cwd_node* next;
 };
 
 extern char* commands[];
 
-struct command_args* get_args_from_stdin();
-void free_args(struct command_args* args);
+void cwd_append(
+    struct cwd* cwd,
+    char* dir_name, uint32_t inode);
+void cwd_free(struct cwd* cwd);
+
+struct cmd_args* get_args_from_stdin();
+void free_args(struct cmd_args* args);
 
 int my_sh(struct my_partition* partition);
 
-void command_ls(
-    struct my_partition* partition,
-    struct command_args* args);
+void cmd_cd(
+    struct cwd* cwd,
+    struct cmd_args* args);
+void cmd_ls(
+    struct cwd* cwd,
+    struct cmd_args* args);
 
 #endif
