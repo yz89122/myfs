@@ -403,7 +403,57 @@ void cmd_put(
 void cmd_get(
     struct cwd* cwd,
     struct cmd_args* args)
-{}
+{
+    args = args->next;
+    if (args == NULL || strlen(args->arg) == 0)
+    {
+        puts("usage: get <file> [new name]");
+        return;
+    }
+    char* filename;
+    if (args->next && strlen(args->next->arg) > 0) filename = args->next->arg;
+    else filename = args->arg;
+
+    uint32_t dir;
+    if (cwd->next) dir = get_cwd(cwd)->inode;
+    else dir = cwd->partition->root;
+
+    struct my_directory_file_list* list = my_list_directory(cwd->partition, dir);
+    struct my_directory_file_list* tmp = my_get_file(cwd->partition, list, args->arg);
+    char* err = NULL;
+    if (tmp == NULL) err = "not exist";
+    else if (tmp->type == MY_TYPE_DIR) err = "it's a directory";
+    if (err)
+    {
+        puts(err);
+        my_free_directory_file_list(cwd->partition, list);
+        return;
+    }
+    uint32_t inode = tmp->inode;
+    my_free_directory_file_list(cwd->partition, list);
+
+    struct my_file* mfp = my_file_open(cwd->partition, inode);
+    if (mfp == NULL)
+    {
+        puts("failed to read");
+        return;
+    }
+
+    FILE* fp = fopen(filename, "wb");
+    if (fp == NULL)
+    {
+        puts("failed to write");
+        my_file_close(cwd->partition, mfp);
+        return;
+    }
+
+    uint8_t* buffer = (uint8_t*) malloc(FILE_BUFFER_SIZE);
+    uint32_t len;
+    while ((len = my_file_read(cwd->partition, mfp, buffer, FILE_BUFFER_SIZE)))
+        fwrite(buffer, sizeof(*buffer), len, fp);
+    fclose(fp);
+    my_file_close(cwd->partition, mfp);
+}
 
 void cmd_cat(
     struct cwd* cwd,
