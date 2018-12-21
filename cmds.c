@@ -6,7 +6,7 @@
 
 #include "utils.h"
 #include "myfs.h"
-#include "commands.h"
+#include "cmds.h"
 
 char* cmds[] = {
     "cd",
