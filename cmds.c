@@ -664,5 +664,7 @@ void cmd_status(
     printf("used inodes:\t%u\n", cwd->partition->inode_used);
     printf("total blocks:\t%u\n", cwd->partition->block_count);
     printf("used blocks:\t%u\n", cwd->partition->block_used);
+    printf("blocks by files:\t%u\n", 
+        cwd->partition->block_used - cwd->partition->blocks);
     printf("block size:\t%u\n", cwd->partition->block_size);
 }
