@@ -14,6 +14,8 @@ Directory is supported!
 > Please think all the command like this way. :)
 > `ls ..` -> will not work, `cd ..` + `ls` -> will work
 
+only tested on **Linux**
+
 ## Run
 
 ```bash
