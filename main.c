@@ -70,12 +70,15 @@ struct my_partition* get_partition()
             {
                 switch (*p)
                 {
+                    case 'b':
+                    case 'B': unit = 1  ; break;
                     case 'k':
-                    case 'K': unit = 1024; break;
+                    case 'K': unit = 1 K; break;
                     case 'm':
-                    case 'M': unit = 1024 * 1024; break;
+                    case 'M': unit = 1 M; break;
                     case 'g':
-                    case 'G': unit = 1024 * 1024 * 1024; break;
+                    case 'G': unit = 1 G; break;
+                    default: continue;
                 }
             }
             if (num * unit < 5 K) continue;
