@@ -311,7 +311,7 @@ void cmd_ls(
         }
         printf("\n");
 
-        my_free_directory_file_list(cwd->partition, list);
+        my_free_dir_list(cwd->partition, list);
     }
 }
 
@@ -325,6 +325,20 @@ void cmd_rm(
         puts("remove what??");
         return;
     }
+
+    uint32_t dir;
+    if (cwd->next) dir = get_cwd(cwd)->inode;
+    else dir = cwd->partition->root;
+    struct my_dir_list* list = my_ls_dir(cwd->partition, dir);
+    struct my_dir_list* tmp = my_get_file(cwd->partition, list, args->arg);
+    if (tmp == NULL)
+    {
+        my_free_dir_list(cwd->partition, list);
+        puts("file not exist");
+        return;
+    }
+    my_free_dir_list(cwd->partition, list);
+    my_dir_unreference_file(cwd->partition, dir, args->arg);
 }
 
 void cmd_mkdir(
@@ -405,7 +419,7 @@ void cmd_put(
     FILE* fp = fopen(args->arg, "rb");
     if (fp == NULL)
     {
-        printf("failed to read file '%s'\n", args->next->arg);
+        printf("failed to open file '%s'\n", args->arg);
         return;
     }
     uint32_t inode = my_touch(cwd->partition);
@@ -457,11 +471,11 @@ void cmd_get(
     if (err)
     {
         puts(err);
-        my_free_directory_file_list(cwd->partition, list);
+        my_free_dir_list(cwd->partition, list);
         return;
     }
     uint32_t inode = tmp->inode;
-    my_free_directory_file_list(cwd->partition, list);
+    my_free_dir_list(cwd->partition, list);
 
     struct my_file* mfp = my_file_open(cwd->partition, inode);
     if (mfp == NULL)
@@ -534,7 +548,7 @@ void cmd_cat(
         else dir = cwd->partition->root;
         struct my_dir_list* list = my_ls_dir(cwd->partition, dir);
         struct my_dir_list* tmp = my_get_file(cwd->partition, list, args->arg);
-        if (tmp == NULL) printf("file was eaten by this cat\n%s", cat);
+        if (tmp == NULL) printf("file was eaten by this cat\n%s\n", cat);
         else if (tmp->type == MY_TYPE_DIR) puts(cat);
         else
         {
@@ -550,7 +564,7 @@ void cmd_cat(
             }
             my_file_close(cwd->partition, fp);
         }
-        my_free_directory_file_list(cwd->partition, list);
+        my_free_dir_list(cwd->partition, list);
     }
     else
     {
@@ -573,7 +587,7 @@ void cmd_cat(
             }
             my_file_close(cwd->partition, fp);
         }
-        my_free_directory_file_list(cwd->partition, list);
+        my_free_dir_list(cwd->partition, list);
     }
 }
 
