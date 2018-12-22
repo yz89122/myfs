@@ -39,6 +39,7 @@ struct my_partition* get_partition()
     puts("\t1, loads from file");
     puts("\t2. create new partition in memory");
     scanf("%d", &op);
+    getchar();
     puts(""); // new line
     if (op == 1)
     {
