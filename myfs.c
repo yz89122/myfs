@@ -237,7 +237,7 @@ struct my_dir_list* my_ls_dir(
     return head;
 }
 
-void my_free_directory_file_list(
+void my_free_dir_list(
     struct my_partition* partition, struct my_dir_list* list)
 {
     struct my_dir_list* next;
@@ -276,10 +276,10 @@ bool my_dir_reference_file(
     if (strlen(filename) == 0 || my_get_file(partition, list, filename) != NULL)
     {
         // if filename already exist or filename with length of 0
-        my_free_directory_file_list(partition, list);
+        my_free_dir_list(partition, list);
         return false;
     }
-    my_free_directory_file_list(partition, list);
+    my_free_dir_list(partition, list);
 
     char* buffer = (char*) malloc(BUFFER_SIZE);
 
@@ -303,12 +303,12 @@ void my_dir_unreference_file(
     struct my_dir_list* file = my_get_file(partition, list, filename);
     if (file == NULL)
     {
-        my_free_directory_file_list(partition, list);
+        my_free_dir_list(partition, list);
         return;
     }
     struct my_dir_list* iter = list;
     my_erase_file(partition, dir);
-    struct my_file* directory = my_file_open(partition, dir);
+    struct my_file* fp = my_file_open(partition, dir);
     uint8_t* buffer = (uint8_t*) malloc(BUFFER_SIZE);
     while (iter)
     {
@@ -320,17 +320,17 @@ void my_dir_unreference_file(
                 iter->type,
                 iter->filename);
             if (line_len == 511) buffer[line_len++ - 1] = '\n';
-            my_file_write(partition, directory, buffer, line_len);
+            my_file_write(partition, fp, buffer, line_len);
         }
         iter = iter->next;
     }
-    my_file_close(partition, directory);
+    my_file_close(partition, fp);
     free(buffer);
     struct my_inode* inode = my_get_inode_pointer(partition, file->inode);
     --(inode->reference_count);
     if (inode->reference_count == 0)
         my_delete_file(partition, file->inode);
-    my_free_directory_file_list(partition, list);
+    my_free_dir_list(partition, list);
 }
 
 void my_delete_file(struct my_partition* partition, uint32_t inode)
@@ -344,6 +344,7 @@ void my_erase_file(struct my_partition* partition, uint32_t inode)
     struct my_inode* s_inode = my_get_inode_pointer(partition, inode);
     uint32_t blocks = s_inode->size / partition->block_size;
     if (s_inode->size % partition->block_size) ++blocks;
+    s_inode->size = 0;
 
     // direct block
     uint32_t loop = blocks > NUM_OF_DIRECT_BLOCKS ? NUM_OF_DIRECT_BLOCKS : blocks;
@@ -357,12 +358,11 @@ void my_erase_file(struct my_partition* partition, uint32_t inode)
     if (blocks < loop) loop = blocks;
     for (int i = 0; i < loop; ++i)
         my_mark_block_unused(partition,
-            my_get_block_pointer(partition, s_inode->indirect_block)[i]);
+            ((uint32_t*) my_get_block_pointer(
+                partition, s_inode->indirect_block))[i]);
 
     // double indirect block
     // trible indirect block
-
-    s_inode->size = 0;
 }
 
 struct my_file* my_file_open(

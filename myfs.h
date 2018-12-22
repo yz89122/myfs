@@ -88,7 +88,7 @@ struct my_dir_list* my_ls_dir(
 struct my_dir_list* my_get_file(
     struct my_partition* partition,
     struct my_dir_list* file_list, const char* filename);
-void my_free_directory_file_list(
+void my_free_dir_list(
     struct my_partition* partition,
     struct my_dir_list* list);
 
