@@ -165,6 +165,7 @@ uint32_t my_get_free_block(struct my_partition* partition)
 
 void my_mark_block_used(struct my_partition* partition, uint32_t block)
 {
+    printf("used %d\n", block);
     uint8_t* bitmap = my_get_block_pointer(
         partition, partition->block_bitmap) + (block / 8);
     uint8_t bit = 0x80 >> (block & 7);
@@ -177,6 +178,7 @@ void my_mark_block_used(struct my_partition* partition, uint32_t block)
 
 void my_mark_block_unused(struct my_partition* partition, uint32_t block)
 {
+    printf("unused %d\n", block);
     uint8_t* bitmap = my_get_block_pointer(
         partition, partition->block_bitmap) + (block / 8);
     uint8_t bit = 0x80 >> (block & 7);
@@ -342,27 +344,190 @@ void my_delete_file(struct my_partition* partition, uint32_t inode)
 void my_erase_file(struct my_partition* partition, uint32_t inode)
 {
     struct my_inode* s_inode = my_get_inode_pointer(partition, inode);
-    uint32_t blocks = s_inode->size / partition->block_size;
+    if (s_inode->size == 0) return;
+    const uint32_t ind = partition->block_size / sizeof(uint32_t);
+    const uint32_t d_ind = ind * ind;
+    uint32_t blocks = s_inode->size / partition->block_size, tmp;
     if (s_inode->size % partition->block_size) ++blocks;
     s_inode->size = 0;
 
+    puts("erase");
+
     // direct block
-    uint32_t loop = blocks > NUM_OF_DIRECT_BLOCKS ? NUM_OF_DIRECT_BLOCKS : blocks;
-    for (int i = 0; i < loop; ++i)
+    tmp = (blocks > NUM_OF_DIRECT_BLOCKS) ? NUM_OF_DIRECT_BLOCKS : blocks;
+    for (int i = 0; i < tmp; ++i)
         my_mark_block_unused(partition, s_inode->direct_block[i]);
+    blocks -= tmp;
 
     // indirect block
-    if (blocks <= NUM_OF_DIRECT_BLOCKS) return;
-    blocks -= NUM_OF_DIRECT_BLOCKS;
-    loop = partition->block_size / sizeof(uint32_t);
-    if (blocks < loop) loop = blocks;
-    for (int i = 0; i < loop; ++i)
-        my_mark_block_unused(partition,
+    if (blocks == 0) return;
+    tmp = (blocks < ind) ? blocks : ind;
+    uint32_t in = tmp;
+
+    for (uint32_t i = 0; i < in; ++i)
+        my_mark_block_unused(
+            partition,
             ((uint32_t*) my_get_block_pointer(
-                partition, s_inode->indirect_block))[i]);
+                partition,
+                s_inode->indirect_block
+            ))[i]
+        );
+    my_mark_block_unused(partition, s_inode->indirect_block);
+    blocks -= tmp;
 
     // double indirect block
+    if (blocks == 0) return;
+    tmp = (blocks < d_ind) ? blocks : d_ind;
+    uint32_t d = tmp / ind;
+    in = tmp % ind;
+
+    for (uint32_t i = 0; i < d; ++i)
+    {
+        for (uint32_t j = 0; j < ind; ++j)
+            my_mark_block_unused(
+                partition,
+                ((uint32_t*) my_get_block_pointer(
+                    partition,
+                    ((uint32_t*) my_get_block_pointer(
+                        partition,
+                        s_inode->double_indirect_block
+                    ))[i]
+                ))[j]
+            );
+        my_mark_block_unused(
+            partition,
+            ((uint32_t*) my_get_block_pointer(
+                partition,
+                s_inode->double_indirect_block
+            ))[i]
+        );
+    }
+    for (uint32_t j = 0; j < in; ++j)
+        my_mark_block_unused(
+            partition,
+            ((uint32_t*) my_get_block_pointer(
+                partition,
+                ((uint32_t*) my_get_block_pointer(
+                    partition,
+                    s_inode->double_indirect_block
+                ))[d]
+            ))[j]
+        );
+    my_mark_block_unused(
+        partition,
+        ((uint32_t*) my_get_block_pointer(
+            partition,
+            s_inode->double_indirect_block
+        ))[d]
+    );
+    my_mark_block_unused(partition, s_inode->double_indirect_block);
+    blocks -= tmp;
+
     // trible indirect block
+    if (blocks == 0) return;
+    uint32_t t = blocks / d_ind;
+    d = (blocks % d_ind) / ind;
+    in = blocks % ind;
+
+    for (uint32_t i = 0; i < t; ++i)
+    {
+        for (uint32_t j = 0; j < ind; ++j)
+        {
+            for (uint32_t k = 0; k < ind; ++k)
+                my_mark_block_unused(
+                    partition,
+                    ((uint32_t*) my_get_block_pointer(
+                        partition,
+                        ((uint32_t*) my_get_block_pointer(
+                            partition,
+                            ((uint32_t*) my_get_block_pointer(
+                                partition,
+                                s_inode->trible_indirect_block
+                            ))[i]
+                        ))[j]
+                    ))[k]
+                );
+            my_mark_block_unused(
+                partition,
+                ((uint32_t*) my_get_block_pointer(
+                    partition,
+                    ((uint32_t*) my_get_block_pointer(
+                        partition,
+                        s_inode->trible_indirect_block
+                    ))[i]
+                ))[j]
+            );
+        }
+        my_mark_block_unused(
+            partition,
+            ((uint32_t*) my_get_block_pointer(
+                partition,
+                s_inode->trible_indirect_block
+            ))[i]
+        );
+    }
+    for (uint32_t j = 0; j < d; ++j)
+    {
+        for (uint32_t k = 0; k < ind; ++k)
+            my_mark_block_unused(
+                partition,
+                ((uint32_t*) my_get_block_pointer(
+                    partition,
+                    ((uint32_t*) my_get_block_pointer(
+                        partition,
+                        ((uint32_t*) my_get_block_pointer(
+                            partition,
+                            s_inode->trible_indirect_block
+                        ))[t]
+                    ))[j]
+                ))[k]
+            );
+        my_mark_block_unused(
+            partition,
+            ((uint32_t*) my_get_block_pointer(
+                partition,
+                ((uint32_t*) my_get_block_pointer(
+                    partition,
+                    s_inode->trible_indirect_block
+                ))[t]
+            ))[j]
+        );
+    }
+    for (uint32_t k = 0; k < in; ++k)
+        my_mark_block_unused(
+            partition,
+            ((uint32_t*) my_get_block_pointer(
+                partition,
+                ((uint32_t*) my_get_block_pointer(
+                    partition,
+                    ((uint32_t*) my_get_block_pointer(
+                        partition,
+                        s_inode->trible_indirect_block
+                    ))[t]
+                ))[d]
+            ))[k]
+        );
+    my_mark_block_unused(
+        partition,
+        ((uint32_t*) my_get_block_pointer(
+            partition,
+            ((uint32_t*) my_get_block_pointer(
+                partition,
+                s_inode->trible_indirect_block
+            ))[t]
+        ))[d]
+    );
+    my_mark_block_unused(
+        partition,
+        ((uint32_t*) my_get_block_pointer(
+            partition,
+            s_inode->trible_indirect_block
+        ))[t]
+    );
+    my_mark_block_unused(
+        partition,
+        s_inode->trible_indirect_block
+    );
 }
 
 struct my_file* my_file_open(
@@ -380,20 +545,41 @@ struct my_file* my_file_open_end(
 {
     uint32_t tmp;
     struct my_file* file = (struct my_file*) malloc(sizeof(struct my_file));
+    const uint32_t ind = partition->block_size / sizeof(uint32_t);
+    const uint32_t d_ind = ind * ind;
+
     file->inode = my_get_inode_pointer(partition, file_inode);
     file->position = file->inode->size;
     file->block_position = file->position % partition->block_size;
-    if (file->block_position == 0)
+
+    if (file->block_position == 0) // size 0
         file->block_position = partition->block_size; // let write function handle it
     else if ((tmp = file->position / partition->block_size) <
-            NUM_OF_DIRECT_BLOCKS)
+            NUM_OF_DIRECT_BLOCKS) // direct
         file->block = file->inode->direct_block[tmp];
-    else if ((tmp -= NUM_OF_DIRECT_BLOCKS) <
-            partition->block_size / sizeof(uint32_t))
-        file->block = my_get_block_pointer(partition,
-            file->inode->indirect_block)[tmp];
-    // else if ()
-    // {}
+    else if ((tmp -= NUM_OF_DIRECT_BLOCKS) < ind) // indirect
+        file->block = ((uint32_t*) my_get_block_pointer(partition,
+            file->inode->indirect_block))[tmp];
+    else if ((tmp -= ind) < d_ind)
+        file->block = ((uint32_t*) my_get_block_pointer(
+            partition,
+            ((uint32_t*) my_get_block_pointer(
+                partition,
+                file->inode->double_indirect_block
+            ))[tmp / ind]
+        ))[tmp % ind];
+    else if ((tmp -= d_ind) < d_ind * ind) // trible indirect
+        file->block = ((uint32_t*) my_get_block_pointer(
+            partition,
+            ((uint32_t*) my_get_block_pointer(
+                partition,
+                ((uint32_t*) my_get_block_pointer(
+                    partition,
+                    file->inode->trible_indirect_block
+                ))[tmp / d_ind]
+            ))[(tmp % d_ind) / ind]
+        ))[tmp % ind];
+
     return file;
 }
 
@@ -409,6 +595,8 @@ uint32_t my_file_read(
     uint8_t* current_block = my_get_block_pointer(partition, file->block);
     uint32_t tmp, buffer_position = 0;
     if (file->position >= file->inode->size) return 0;
+    const uint32_t ind = partition->block_size / sizeof(uint32_t);
+    const uint32_t d_ind = ind * ind;
     
     while (buffer_position < buffer_size && file->position < file->inode->size)
     {
@@ -416,17 +604,36 @@ uint32_t my_file_read(
         // if reached block ending then go to next block
         {
             if ((tmp = file->position / partition->block_size) <
-                    NUM_OF_DIRECT_BLOCKS)
+                    NUM_OF_DIRECT_BLOCKS) // direct
                 file->block = file->inode->direct_block[tmp];
-            else if ((tmp -= NUM_OF_DIRECT_BLOCKS) <
-                    partition->block_size / sizeof(uint32_t))
+            else if ((tmp -= NUM_OF_DIRECT_BLOCKS) < ind) // indirect
                 file->block = ((uint32_t*) my_get_block_pointer(partition,
                     file->inode->indirect_block))[tmp];
-            // else if ()
-            // {}
+            else if ((tmp -= ind) < d_ind) // double indirect
+                file->block = ((uint32_t*) my_get_block_pointer(
+                    partition,
+                    ((uint32_t*) my_get_block_pointer(
+                        partition,
+                        file->inode->double_indirect_block
+                    ))[tmp / ind]
+                ))[tmp % ind];
+            else if ((tmp -= d_ind) < d_ind * ind) // trible indirect
+                file->block = ((uint32_t*) my_get_block_pointer(
+                    partition,
+                    ((uint32_t*) my_get_block_pointer(
+                        partition,
+                        ((uint32_t*) my_get_block_pointer(
+                            partition,
+                            file->inode->trible_indirect_block
+                        ))[tmp / d_ind]
+                    ))[(tmp % d_ind) / ind]
+                ))[tmp % ind];
+            else break; // you're so huge hum?
+
             current_block = my_get_block_pointer(partition, file->block);
             file->block_position = 0;
         }
+
         buffer[buffer_position++] = current_block[file->block_position++];
         ++file->position;
     }
@@ -440,6 +647,8 @@ uint32_t my_file_read_line(
     uint8_t* current_block = my_get_block_pointer(partition, file->block);
     uint32_t tmp, buffer_position = 0;
     if (file->position >= file->inode->size) return 0;
+    const uint32_t ind = partition->block_size / sizeof(uint32_t);
+    const uint32_t d_ind = ind * ind;
     
     while (buffer_position + 1 < buffer_size &&
         file->position < file->inode->size)
@@ -448,17 +657,36 @@ uint32_t my_file_read_line(
         // if reached block ending then go to next block
         {
             if ((tmp = file->position / partition->block_size) <
-                    NUM_OF_DIRECT_BLOCKS)
+                    NUM_OF_DIRECT_BLOCKS) // direct
                 file->block = file->inode->direct_block[tmp];
-            else if ((tmp -= NUM_OF_DIRECT_BLOCKS) <
-                    partition->block_size / sizeof(uint32_t))
+            else if ((tmp -= NUM_OF_DIRECT_BLOCKS) < ind) // indirect
                 file->block = ((uint32_t*) my_get_block_pointer(partition,
                     file->inode->indirect_block))[tmp];
-            // else if ()
-            // {}
+            else if ((tmp -= ind) < d_ind) // double indirect
+                file->block = ((uint32_t*) my_get_block_pointer(
+                    partition,
+                    ((uint32_t*) my_get_block_pointer(
+                        partition,
+                        file->inode->double_indirect_block
+                    ))[tmp / ind]
+                ))[tmp % ind];
+            else if ((tmp -= d_ind) < d_ind * ind) // trible indirect
+                file->block = ((uint32_t*) my_get_block_pointer(
+                    partition,
+                    ((uint32_t*) my_get_block_pointer(
+                        partition,
+                        ((uint32_t*) my_get_block_pointer(
+                            partition,
+                            file->inode->trible_indirect_block
+                        ))[tmp / d_ind]
+                    ))[(tmp % d_ind) / ind]
+                ))[tmp % ind];
+            else break; // :O too large
+
             current_block = my_get_block_pointer(partition, file->block);
             file->block_position = 0;
         }
+
         buffer[buffer_position] = current_block[file->block_position++];
         ++file->position;
         if (buffer[buffer_position++] == '\n') break;
@@ -473,6 +701,8 @@ uint32_t my_file_write(
 {
     uint8_t* current_block = my_get_block_pointer(partition, file->block);
     uint32_t tmp, buffer_position = 0;
+    const uint32_t ind = partition->block_size / sizeof(uint32_t);
+    const uint32_t d_ind = ind * ind;
 
     while (buffer_position < buffer_size)
     {
@@ -488,26 +718,173 @@ uint32_t my_file_write(
             {
                 file->block = file->inode->direct_block[tmp] = free_block;
             }
-            else if ((tmp -= NUM_OF_DIRECT_BLOCKS) <
-                partition->block_size / sizeof(uint32_t))
+            else if ((tmp -= NUM_OF_DIRECT_BLOCKS) < ind) // indirect
             {
                 if (tmp == 0)
                 {
-                    uint32_t free_block_indrect = my_get_free_block(partition);
-                    if (free_block_indrect == 0 ||
-                        free_block_indrect >= partition->block_count)
+                    uint32_t fb_i = my_get_free_block(partition);
+                    if (fb_i == 0 || fb_i >= partition->block_count)
                     {
                         my_mark_block_unused(partition, free_block); // free pervious
                         break;
                     }
-                    my_mark_block_used(partition, free_block_indrect);
-                    file->inode->indirect_block = free_block_indrect;
+                    my_mark_block_used(partition, fb_i);
+                    file->inode->indirect_block = fb_i;
                 }
                 file->block = ((uint32_t*) my_get_block_pointer(partition,
                     file->inode->indirect_block))[tmp] = free_block;
             }
-            // else if ()
-            // {}
+            else if ((tmp -= ind) < d_ind) // double indirect
+            {
+                uint32_t i = tmp % ind;
+                uint32_t d = tmp / ind;
+                if (d == 0 && i == 0)
+                {
+                    uint32_t fb_d = my_get_free_block(partition);
+                    if (fb_d == 0 || fb_d >= partition->block_count)
+                    {
+                        my_mark_block_unused(partition, free_block);
+                        break;
+                    }
+                    my_mark_block_used(partition, fb_d);
+
+                    uint32_t fb_i = my_get_free_block(partition);
+                    if (fb_i == 0 || fb_i >= partition->block_count)
+                    {
+                        my_mark_block_unused(partition, free_block);
+                        my_mark_block_unused(partition, fb_d);
+                        break;
+                    }
+                    my_mark_block_used(partition, fb_i);
+
+                    ((uint32_t*) my_get_block_pointer(
+                        partition,
+                        file->inode->double_indirect_block = fb_d
+                    ))[d] = fb_i;
+                }
+                else if (i == 0)
+                {
+                    uint32_t fb_i = my_get_free_block(partition);
+                    if (fb_i == 0 || fb_i >= partition->block_count)
+                    {
+                        my_mark_block_unused(partition, free_block);
+                        break;
+                    }
+                    my_mark_block_used(partition, fb_i);
+
+                    ((uint32_t*) my_get_block_pointer(partition,
+                        file->inode->double_indirect_block))[d] = fb_i;
+                }
+
+                file->block = ((uint32_t*) my_get_block_pointer(
+                    partition,
+                    ((uint32_t*) my_get_block_pointer(
+                        partition,
+                        file->inode->double_indirect_block
+                    ))[d]
+                ))[i] = free_block;
+            }
+            else if ((tmp -= d_ind) < d_ind * ind) // trible indirect
+            {
+                uint32_t i = tmp % ind;
+                uint32_t d = (tmp % d_ind) / ind;
+                uint32_t t = tmp / d_ind;
+                if (t == 0 && d == 0 && i == 0)
+                {
+                    uint32_t fb_t = my_get_free_block(partition);
+                    if (fb_t == 0 || fb_t >= partition->block_count)
+                    {
+                        my_mark_block_unused(partition, free_block);
+                        break;
+                    }
+                    my_mark_block_used(partition, fb_t);
+
+                    uint32_t fb_d = my_get_free_block(partition);
+                    if (fb_d == 0 || fb_d >= partition->block_count)
+                    {
+                        my_mark_block_unused(partition, free_block);
+                        my_mark_block_unused(partition, fb_t);
+                        break;
+                    }
+                    my_mark_block_used(partition, fb_d);
+
+                    uint32_t fb_i = my_get_free_block(partition);
+                    if (fb_i == 0 || fb_i >= partition->block_count)
+                    {
+                        my_mark_block_unused(partition, free_block);
+                        my_mark_block_unused(partition, fb_t);
+                        my_mark_block_unused(partition, fb_d);
+                        break;
+                    }
+                    my_mark_block_used(partition, fb_i);
+
+                    ((uint32_t*) my_get_block_pointer(
+                        partition,
+                        ((uint32_t*) my_get_block_pointer(
+                            partition,
+                            file->inode->trible_indirect_block = fb_t
+                        ))[t] = fb_d
+                    ))[d] = fb_i;
+                }
+                else if (d == 0 && i == 0)
+                {
+                    uint32_t fb_d = my_get_free_block(partition);
+                    if (fb_d == 0 || fb_d >= partition->block_count)
+                    {
+                        my_mark_block_unused(partition, free_block);
+                        break;
+                    }
+                    my_mark_block_used(partition, fb_d);
+
+                    uint32_t fb_i = my_get_free_block(partition);
+                    if (fb_i == 0 || fb_i >= partition->block_count)
+                    {
+                        my_mark_block_unused(partition, free_block);
+                        my_mark_block_unused(partition, fb_d);
+                        break;
+                    }
+                    my_mark_block_used(partition, fb_i);
+
+                    ((uint32_t*) my_get_block_pointer(
+                        partition,
+                        ((uint32_t*) my_get_block_pointer(
+                            partition,
+                            file->inode->trible_indirect_block
+                        ))[t] = fb_d
+                    ))[d] = fb_i;
+                }
+                else if (i == 0)
+                {
+                    uint32_t fb_i = my_get_free_block(partition);
+                    if (fb_i == 0 || fb_i >= partition->block_count)
+                    {
+                        my_mark_block_unused(partition, free_block);
+                        break;
+                    }
+                    my_mark_block_used(partition, fb_i);
+
+                    ((uint32_t*) my_get_block_pointer(
+                        partition,
+                        ((uint32_t*) my_get_block_pointer(
+                            partition,
+                            file->inode->trible_indirect_block
+                        ))[t]
+                    ))[d] = fb_i;
+                }
+
+                file->block = ((uint32_t*) my_get_block_pointer(
+                    partition,
+                    ((uint32_t*) my_get_block_pointer(
+                        partition,
+                        ((uint32_t*) my_get_block_pointer(
+                            partition,
+                            file->inode->trible_indirect_block
+                        ))[t]
+                    ))[d]
+                ))[i] = free_block;
+            }
+            else break; // :O too large
+
             current_block = my_get_block_pointer(partition, file->block);
             file->block_position = 0;
         }
