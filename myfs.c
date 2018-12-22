@@ -48,7 +48,6 @@ struct my_partition* my_make_partition(uint32_t size)
     memset(my_get_block_pointer(partition,
         partition->block_bitmap), 0, partition->block_size);
 
-    // printf("%d\n", partition->blocks);
     for (uint32_t i = 0; i < partition->blocks; ++i)
         my_mark_block_used(partition, i);
 
@@ -165,7 +164,6 @@ uint32_t my_get_free_block(struct my_partition* partition)
 
 void my_mark_block_used(struct my_partition* partition, uint32_t block)
 {
-    printf("used %d\n", block);
     uint8_t* bitmap = my_get_block_pointer(
         partition, partition->block_bitmap) + (block / 8);
     uint8_t bit = 0x80 >> (block & 7);
@@ -178,7 +176,6 @@ void my_mark_block_used(struct my_partition* partition, uint32_t block)
 
 void my_mark_block_unused(struct my_partition* partition, uint32_t block)
 {
-    printf("unused %d\n", block);
     uint8_t* bitmap = my_get_block_pointer(
         partition, partition->block_bitmap) + (block / 8);
     uint8_t bit = 0x80 >> (block & 7);
