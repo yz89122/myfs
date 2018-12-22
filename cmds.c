@@ -34,20 +34,22 @@ const void (*cmd_ptrs[])(struct cwd*, struct cmd_args*) = {
     cmd_status,
 };
 
+static struct cwd_node* get_cwd(struct cwd* cwd)
+{
+    struct cwd_node* node = cwd->next;
+    if (node) while (node->next) node = node->next;
+    return node;
+}
+
 void cwd_append(struct cwd* cwd, char* dir_name, uint32_t inode)
 {
     struct cwd_node* new = (struct cwd_node*) malloc(sizeof(struct cwd_node));
     new->dir_name = (char*) malloc(sizeof(char) * strlen(dir_name));
-    strcpy(cwd->next->dir_name, dir_name);
+    strcpy(new->dir_name, dir_name);
     new->inode = inode;
     new->next = NULL;
-    if (cwd->next == NULL) cwd->next = NULL;
-    else
-    {
-        struct cwd_node* node = cwd->next;
-        while (node->next) node = node->next;
-        node->next = new;
-    }
+    if (cwd->next == NULL) cwd->next = new;
+    else get_cwd(cwd)->next = new;
 }
 
 void cwd_free(struct cwd* cwd)
@@ -238,17 +240,53 @@ int my_sh(struct my_partition* partition)
     return 0;
 }
 
-static struct cwd_node* get_cwd(struct cwd* cwd)
-{
-    struct cwd_node* node = cwd->next;
-    if (node) while (node->next) node = node->next;
-    return node;
-}
-
 void cmd_cd(
     struct cwd* cwd,
     struct cmd_args* args)
-{}
+{
+    args = args->next;
+    if (args == NULL || strlen(args->arg) == 0)
+    {
+        cwd_free(cwd);
+    }
+    else if (strcmp(args->arg, ".") == 0)
+    {
+        // do nothing
+    }
+    else if (strcmp(args->arg, "..") == 0)
+    {
+        struct cwd_node* node = cwd->next;
+        if (node == NULL) return;
+        else if (node->next == NULL)
+        {
+            free(node->dir_name);
+            free(node);
+            cwd->next = NULL;
+        }
+        else
+        {
+            while (node->next) node = node->next;
+            free(node->next->dir_name);
+            free(node->next);
+            node->next = NULL;
+        }
+    }
+    else
+    {
+        uint32_t dir;
+        if (cwd->next) dir = get_cwd(cwd)->inode;
+        else dir = cwd->partition->root;
+        struct my_dir_list* list = my_ls_dir(cwd->partition, dir);
+        struct my_dir_list* find = my_get_file(cwd->partition, list, args->arg);
+        if (find == NULL)
+            printf("cd: '%s' does not exist\n", args->arg);
+        else if (find->type != MY_TYPE_DIR)
+            printf("cd: '%s' is not a directory\n", args->arg);
+        else
+            cwd_append(cwd, find->filename, find->inode);
+        my_free_dir_list(cwd->partition, list);
+    }
+}
 
 void cmd_ls(
     struct cwd* cwd,
@@ -304,9 +342,12 @@ void cmd_ls(
         while (tmp)
         {
             if (long_list) {}
-            else if (tmp->type == MY_TYPE_DIR)
-                printf(C_BLU "%s " C_RST, tmp->filename);
-            else printf("%s ", tmp->filename);
+            else
+            {
+                if (tmp->type == MY_TYPE_DIR)
+                    printf(C_BLU "%s " C_RST, tmp->filename);
+                else printf("%s ", tmp->filename);
+            }
             tmp = tmp->next;
         }
         printf("\n");
