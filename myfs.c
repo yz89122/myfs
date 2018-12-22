@@ -348,8 +348,6 @@ void my_erase_file(struct my_partition* partition, uint32_t inode)
     if (s_inode->size % partition->block_size) ++blocks;
     s_inode->size = 0;
 
-    puts("erase");
-
     // direct block
     tmp = (blocks > NUM_OF_DIRECT_BLOCKS) ? NUM_OF_DIRECT_BLOCKS : blocks;
     for (int i = 0; i < tmp; ++i)
