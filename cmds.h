@@ -45,6 +45,9 @@ void cmd_rm(
 void cmd_mkdir(
     struct cwd* cwd,
     struct cmd_args* args);
+void cmd_rmdir(
+    struct cwd* cwd,
+    struct cmd_args* args);
 void cmd_put(
     struct cwd* cwd,
     struct cmd_args* args);

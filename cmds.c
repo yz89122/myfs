@@ -15,6 +15,7 @@ const char* cmds[] = {
     "ls",
     "rm",
     "mkdir",
+    "rmdir",
     "put",
     "get",
     "cat",
@@ -27,6 +28,7 @@ const void (*cmd_ptrs[])(struct cwd*, struct cmd_args*) = {
     cmd_ls,
     cmd_rm,
     cmd_mkdir,
+    cmd_rmdir,
     cmd_put,
     cmd_get,
     cmd_cat,
@@ -373,13 +375,12 @@ void cmd_rm(
     struct my_dir_list* list = my_ls_dir(cwd->partition, dir);
     struct my_dir_list* tmp = my_get_file(cwd->partition, list, args->arg);
     if (tmp == NULL)
-    {
-        my_free_dir_list(cwd->partition, list);
         puts("file not exist");
-        return;
-    }
+    else if (tmp->type == MY_TYPE_DIR)
+        printf("%s is a directory\n", args->arg);
+    else
+        my_dir_unreference_file(cwd->partition, dir, args->arg);
     my_free_dir_list(cwd->partition, list);
-    my_dir_unreference_file(cwd->partition, dir, args->arg);
 }
 
 void cmd_mkdir(
@@ -420,6 +421,36 @@ void cmd_mkdir(
         my_delete_file(cwd->partition, inode);
         puts("mkdir: already exist");
     }
+}
+
+void cmd_rmdir(
+    struct cwd* cwd,
+    struct cmd_args* args)
+{
+    args = args->next;
+    if (args == NULL || strlen(args->arg) == 0)
+    {
+        puts("usage: rmdir <dir>");
+        return;
+    }
+    uint32_t dir;
+    if (cwd->next) dir = get_cwd(cwd)->inode;
+    else dir = cwd->partition->root;
+
+    struct my_dir_list* list = my_ls_dir(cwd->partition, dir);
+    struct my_dir_list* tmp = my_get_file(cwd->partition, list, args->arg);
+    if (tmp == NULL)
+    {
+        my_free_dir_list(cwd->partition, list);
+        return;
+    }
+
+    uint32_t target = tmp->inode;
+    tmp = my_ls_dir(cwd->partition, target);
+    if (tmp != NULL) puts("directory is not empty");
+    else my_dir_unreference_file(cwd->partition, dir, args->arg);
+
+    my_free_dir_list(cwd->partition, list);
 }
 
 void cmd_put(
@@ -647,6 +678,7 @@ void cmd_help(
         "'cd' change directory""\n"
         "'rm' remove""\n"
         "'mkdir' make directory""\n"
+        "'rmdir' remove directory""\n"
         "'put' put file into this space ship""\n"
         "'get' get file from the Apollo 11""\n"
         "'cat' meow?""\n"
