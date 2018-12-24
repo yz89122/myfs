@@ -14,10 +14,12 @@
 struct my_partition* my_make_partition(uint32_t size)
 {
     if (size < 5 * MY_BLOCK_SIZE) return NULL;
+
     uint8_t* memory = (uint8_t*) malloc(size);
     struct my_partition* partition = (struct my_partition*) memory;
     partition->size = size;
 
+    // uses default block size
     partition->inode_size = MY_INODE_SIZE;
     partition->block_size = MY_BLOCK_SIZE;
 
@@ -28,11 +30,14 @@ struct my_partition* my_make_partition(uint32_t size)
     if (size_of_bitmap % partition->block_size) ++blocks_of_bitmap;
     uint32_t tmp;
 
+    // bitmap starting block
     partition->inode_bitmap = 1;
     partition->block_bitmap = partition->inode_bitmap + blocks_of_bitmap;
 
+    // inodes starting block
     partition->inodes = partition->block_bitmap + blocks_of_bitmap;
 
+    // number of inodes and blocks
     partition->inode_count = (num_of_blocks - partition->inodes) *
         partition->inode_size / (partition->inode_size + partition->block_size);
     partition->block_count = num_of_blocks;
@@ -40,20 +45,25 @@ struct my_partition* my_make_partition(uint32_t size)
     partition->blocks = partition->inodes + tmp / partition->block_size;
     if (tmp % partition->block_size) ++partition->blocks;
 
+    // init
     partition->inode_used = 0;
     partition->block_used = 0;
 
+    // init bitmap
     memset(my_get_block_pointer(partition,
         partition->inode_bitmap), 0, partition->block_size);
     memset(my_get_block_pointer(partition,
         partition->block_bitmap), 0, partition->block_size);
 
+    // mark description block, bitmap blocks used
     for (uint32_t i = 0; i < partition->blocks; ++i)
         my_mark_block_used(partition, i);
 
+    // make root directory
     my_mark_inode_used(partition, 0);
     partition->root = 0;
 
+    // init root directory
     struct my_inode* root = my_get_inode_pointer(partition, 0);
     root->reference_count = 1;
     root->mtime = time(NULL);
@@ -64,6 +74,8 @@ struct my_partition* my_make_partition(uint32_t size)
 
 struct my_partition* my_load_partition_from_file(FILE* file)
 {
+    if (file == NULL) return NULL;
+
     const uint32_t bs = sizeof(uint8_t) * 4 K;
     uint8_t* buffer = (uint8_t*) malloc(bs);
     uint8_t* partition;
@@ -98,23 +110,27 @@ struct my_partition* my_load_partition_from_file(FILE* file)
 
 void my_dump_partition_to_file(struct my_partition* partition, FILE* file)
 {
+    // :D simple and easy
     fwrite(partition, sizeof(uint8_t), partition->size, file);
 }
 
 void my_free_partition(struct my_partition* partition)
 {
+    // just a wrapper, actually
     free(partition);
 }
 
 uint8_t* my_get_block_pointer(
     struct my_partition* partition, uint32_t block)
 {
+    // use to save lines of codes
     return (uint8_t*) partition + block * partition->block_size;
 }
 
 struct my_inode* my_get_inode_pointer(
     struct my_partition* partition, uint32_t inode)
 {
+    // use to save lines of codes
     return (struct my_inode*) (
         my_get_block_pointer(partition, partition->inodes) +
         partition->inode_size * inode);
@@ -123,7 +139,10 @@ struct my_inode* my_get_inode_pointer(
 static int32_t first_zero(uint64_t x)
 {
     int32_t i;
-    
+
+    // since the representation of int is different
+    // in 2 different endianness, we need to use 2
+    // different approach to get the first ZERO.
     #ifndef MY_FS_BIG_ENDIAN
         uint8_t* p = ((uint8_t*) &x) - 1;
     #endif
@@ -146,8 +165,8 @@ uint32_t my_get_free_inode(struct my_partition* partition)
     uint32_t loop = partition->inode_count / 64;
     uint64_t *p = (uint64_t*) my_get_block_pointer(
         partition, partition->inode_bitmap);
-    for (uint32_t i = 0; i < loop; ++i, ++p)
-        if (*p != 0xffffffffffffffff)
+    for (uint32_t i = 0; i < loop; ++i, ++p) // 64 bits per loop
+        if (*p != 0xffffffffffffffff) // all 1
             return first_zero(*p) + i * 64;
     uint32_t base = loop * 64;
     uint32_t z = first_zero(*p);
@@ -162,6 +181,8 @@ void my_mark_inode_used(struct my_partition* partition, uint32_t inode)
     uint8_t bit = 0x80 >> (inode & 7);
     if (!(*bitmap & bit))
     {
+        // Only increase the number when it was marked
+        // available originally.
         ++partition->inode_used;
         *bitmap |= bit;
     }
@@ -174,6 +195,8 @@ void my_mark_inode_unused(struct my_partition* partition, uint32_t inode)
     uint8_t bit = 0x80 >> (inode & 7);
     if (*bitmap & bit)
     {
+        // Only decrease the number when it was marked
+        // unavailable originally.
         --partition->inode_used;
         *bitmap &= ~bit;
     }
@@ -184,8 +207,8 @@ uint32_t my_get_free_block(struct my_partition* partition)
     uint32_t loop = partition->block_count / 64;
     uint64_t *p = (uint64_t*) my_get_block_pointer(
         partition, partition->block_bitmap);
-    for (uint32_t i = 0; i < loop; ++i, ++p)
-        if (*p != 0xffffffffffffffff)
+    for (uint32_t i = 0; i < loop; ++i, ++p) // 64 bits per loop
+        if (*p != 0xffffffffffffffff) // all 1
             return first_zero(*p) + i * 64;
     uint32_t base = loop * 64;
     uint32_t z = first_zero(*p);
@@ -200,6 +223,8 @@ void my_mark_block_used(struct my_partition* partition, uint32_t block)
     uint8_t bit = 0x80 >> (block & 7);
     if (!(*bitmap & bit))
     {
+        // Only increase the number when it was marked
+        // available originally.
         ++partition->block_used;
         *bitmap |= bit;
     }
@@ -212,6 +237,8 @@ void my_mark_block_unused(struct my_partition* partition, uint32_t block)
     uint8_t bit = 0x80 >> (block & 7);
     if (*bitmap & bit)
     {
+        // Only decrease the number when it was marked
+        // unavailable originally.
         --partition->block_used;
         *bitmap &= ~bit;
     }
@@ -271,6 +298,7 @@ void my_free_dir_list(
     struct my_partition* partition, struct my_dir_list* list)
 {
     struct my_dir_list* next;
+    // linked list
     while (list)
     {
         next = list->next;
@@ -313,12 +341,13 @@ bool my_dir_reference_file(
 
     char* buffer = (char*) malloc(BUFFER_SIZE);
 
+    // append "aaa|1|filename\n"
     uint32_t line_len = snprintf(buffer, BUFFER_SIZE, "%x|%x|%s\n", file, type, filename);
-    if (line_len == 511) buffer[line_len++] = '\n';
-    struct my_file* directory = my_file_open_end(partition, dir);
+    if (line_len == 511) buffer[line_len++] = '\n'; // if filename was too large
+    struct my_file* directory = my_file_open_end(partition, dir); // append mode
     my_file_write(partition, directory, (uint8_t*) buffer, line_len);
     my_file_close(partition, directory);
-    ++(my_get_inode_pointer(partition, file)->reference_count);
+    ++my_get_inode_pointer(partition, file)->reference_count; // increase reference count
 
     free(buffer);
 
@@ -336,6 +365,9 @@ void my_dir_unreference_file(
         my_free_dir_list(partition, list);
         return;
     }
+
+    // erase the directory then rewrite the contents
+    // except the unreferenced file
     struct my_dir_list* iter = list;
     my_erase_file(partition, dir);
     struct my_file* fp = my_file_open(partition, dir);
@@ -357,8 +389,8 @@ void my_dir_unreference_file(
     my_file_close(partition, fp);
     free(buffer);
     struct my_inode* inode = my_get_inode_pointer(partition, file->inode);
-    --(inode->reference_count);
-    if (inode->reference_count == 0)
+    --inode->reference_count; // decrease reference count
+    if (inode->reference_count == 0) // remove if reference count is ZERO
         my_delete_file(partition, file->inode);
     my_free_dir_list(partition, list);
 }
@@ -570,11 +602,8 @@ struct my_file* my_file_open_end(
     struct my_partition* partition, uint32_t file_inode)
 {
     struct my_file* file = (struct my_file*) malloc(sizeof(struct my_file));
-
     file->inode = my_get_inode_pointer(partition, file_inode);
-
     my_file_seek_end(partition, file);
-
     return file;
 }
 
@@ -630,6 +659,7 @@ uint32_t my_file_seek_end(
 
 void my_file_close(struct my_partition* partition, struct my_file* file)
 {
+    // wrapper
     free(file);
 }
 

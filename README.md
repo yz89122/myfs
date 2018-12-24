@@ -51,3 +51,31 @@ Colors are disabled in Windows. Since it's not supported in `cmd.exe`.
     #define C_RST "\x1B[0m"
 #endif
 ```
+
+## Endianness
+
+```c
+static int32_t first_zero(uint64_t x)
+{
+    int32_t i;
+
+    // since the representation of int is different
+    // in 2 different endianness, we need to use 2
+    // different approach to get the first ZERO.
+    #ifndef MY_FS_BIG_ENDIAN
+        uint8_t* p = ((uint8_t*) &x) - 1;
+    #endif
+
+    for (i = 63; i >= 0; --i)
+    {
+        #ifndef MY_FS_BIG_ENDIAN
+            if ((i & 7) == 7) ++p;
+            if (((*p >> (i & 7)) & 1) == 0) break;
+        #else
+            if ((x >> i & 1) == 0) break;
+        #endif
+    }
+
+    return 63 - i;
+}
+```

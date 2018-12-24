@@ -15,33 +15,63 @@
 #define MY_TYPE_SYM  2
 #define MY_TYPE_FILE 3
 
+/**
+ * Hum.. it just... inode.
+ * Recording information of file.
+ */
 struct my_inode
 {
+    /**
+     * Number of directory reference to this
+     * file. File should be removed if the
+     * reference count is ZERO.
+     */
     uint32_t reference_count;
     uint64_t mtime;
     uint32_t size;
+
+    // used blocks
     uint32_t direct_block[NUM_OF_DIRECT_BLOCKS];
     uint32_t indirect_block;
     uint32_t double_indirect_block;
     uint32_t trible_indirect_block;
 };
 
+/**
+ * Structure for represent information of partition.
+ */
 struct my_partition
 {
+    // partition size
     uint32_t size;
+    // single inode size
     uint32_t inode_size;
+    // single block size
     uint32_t block_size;
+    // number of inodes
     uint32_t inode_count;
+    // number of blocks
     uint32_t block_count;
+    // number of used inodes
     uint32_t inode_used;
+    // number of used blocks
     uint32_t block_used;
+
+    // inode number of the root directory
     uint32_t root;
+    // starting block of the inodes bitmap
     uint32_t inode_bitmap;
+    // starting block of the blocks bitmap
     uint32_t block_bitmap;
+    // starting block of the inodes block
     uint32_t inodes;
+    // starting block of remaining available blocks
     uint32_t blocks;
 };
 
+/**
+ * Structure for represent a opening file.
+ */
 struct my_file
 {
     struct my_inode* inode;
@@ -50,11 +80,16 @@ struct my_file
     uint32_t block_position;
 };
 
+/**
+ * Structure for represent content of directory.
+ */
 struct my_dir_list
 {
     uint8_t type;
     char filename[512];
     uint32_t inode;
+
+    // linked list, easiest implementation
     struct my_dir_list* next;
 };
 
@@ -74,11 +109,17 @@ struct my_partition* my_make_partition(uint32_t size);
 
 /**
  * Load partition from given file.
+ * The given file should be opened before calling
+ * this function and be closed after this function
+ * by the caller.
  */
 struct my_partition* my_load_partition_from_file(FILE* file);
 
 /**
  * Dump the partition to the given file pointer.
+ * The given file should be opened before calling
+ * this function and be closed after this function
+ * by the caller.
  */
 void my_dump_partition_to_file(
     struct my_partition* partition, FILE* file);
