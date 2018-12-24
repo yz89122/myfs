@@ -217,6 +217,8 @@ bool my_dir_reference_file(
  * and decrease the reference count of the file.
  * It will delete the file only if the reference
  * count is ZERO after calling this function.
+ * 
+ * Note: DO NOT UNREFERENCE NON-EMPTY DIRECTORY.
  */
 void my_dir_unreference_file(
     struct my_partition* partition,
