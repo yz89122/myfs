@@ -64,11 +64,42 @@ struct my_partition* my_make_partition(uint32_t size)
 
 struct my_partition* my_load_partition_from_file(FILE* file)
 {
-    return NULL;
+    const uint32_t bs = sizeof(uint8_t) * 4 K;
+    uint8_t* buffer = (uint8_t*) malloc(bs);
+    uint8_t* partition;
+    uint64_t ret, fs, pos = 0;
+    uint32_t ps;
+
+    // get file size
+    fseek(file, 0L, SEEK_END);
+    fs = ftell(file);
+    if (fs < 5 K) return NULL;
+
+    // get partition size
+    rewind(file);
+    ret = fread(buffer, sizeof(uint8_t), bs, file);
+    ps = *((uint32_t*) buffer); // first 4 bytes should be the partition size
+    if (ps < 5 K) return NULL;
+    partition = (uint8_t*) malloc(ps);
+
+    // copy the first part
+    memcpy(partition, buffer, ret);
+    pos += ret;
+
+    // load from file
+    while ((ret = fread(buffer, sizeof(uint8_t), 4 K, file)) > 0)
+    {
+        memcpy(partition + pos, buffer, ret);
+        pos += ret;
+    }
+
+    return (struct my_partition*) partition;
 }
 
-void my_dump_partition_to_file(FILE* file)
-{}
+void my_dump_partition_to_file(struct my_partition* partition, FILE* file)
+{
+    fwrite(partition, sizeof(uint8_t), partition->size, file);
+}
 
 void my_free_partition(struct my_partition* partition)
 {

@@ -20,6 +20,7 @@ const char* cmds[] = {
     "get",
     "cat",
     "help",
+    "dump",
     "status",
 };
 
@@ -33,6 +34,7 @@ const void (*cmd_ptrs[])(struct cwd*, struct cmd_args*) = {
     cmd_get,
     cmd_cat,
     cmd_help,
+    cmd_dump,
     cmd_status,
 };
 
@@ -685,6 +687,26 @@ void cmd_help(
         "'status' show status of this awesome aircraft""\n"
         "'help' call 911""\n"
     );
+}
+
+void cmd_dump(
+    struct cwd* cwd,
+    struct cmd_args* args)
+{
+    args = args->next;
+    if (args == NULL || strlen(args->arg) == 0)
+    {
+        puts("usage: dump <filename>");
+        return;
+    }
+    FILE* fp = fopen(args->arg, "wb");
+    if (fp == NULL)
+    {
+        printf("failed to open %s\n", args->arg);
+        return;
+    }
+    my_dump_partition_to_file(cwd->partition, fp);
+    fclose(fp);
 }
 
 void cmd_status(

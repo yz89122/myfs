@@ -73,15 +73,15 @@ struct my_dir_list
 struct my_partition* my_make_partition(uint32_t size);
 
 /**
- * Load partition from given file.(Not implement yet)
+ * Load partition from given file.
  */
 struct my_partition* my_load_partition_from_file(FILE* file);
 
 /**
  * Dump the partition to the given file pointer.
- * (not implement yet)
  */
-void my_dump_partition_to_file(FILE* file);
+void my_dump_partition_to_file(
+    struct my_partition* partition, FILE* file);
 
 /**
  * Free the partition in memory.
