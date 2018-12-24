@@ -1,21 +1,23 @@
 CC=gcc
-ARGS="-Wall"
+CFLAGS=-Wall -std=c11
 
-a.out: main.o myfs.o cmds.o utils.o
-	$(CC) $(ARGS) main.o myfs.o cmds.o utils.o -o a.out
-	strip a.out
+EXECUTABLE=myfs
+
+$(EXECUTABLE): main.o myfs.o cmds.o utils.o
+	$(CC) $(CFLAGS) main.o myfs.o cmds.o utils.o -o $(EXECUTABLE)
+	strip $(EXECUTABLE)
 
 myfs.o: myfs.c myfs.h
-	$(CC) $(ARGS) -c myfs.c -o myfs.o
+	$(CC) $(CFLAGS) -c myfs.c -o myfs.o
 
 cmds.o: cmds.c cmds.h utils.h
-	$(CC) $(ARGS) -c cmds.c
+	$(CC) $(CFLAGS) -c cmds.c
 
 main.o: main.c myfs.h cmds.h utils.h
-	$(CC) $(ARGS) -c main.c -o main.o
+	$(CC) $(CFLAGS) -c main.c -o main.o
 
 utils.o: utils.h utils.c
-	$(CC) $(ARGS) -c utils.c -o utils.o
+	$(CC) $(CFLAGS) -c utils.c -o utils.o
 
 clean:
-	rm *.o a.out
+	rm *.o $(EXECUTABLE)

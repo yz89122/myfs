@@ -19,7 +19,7 @@ only tested on **Linux**
 ## Run
 
 ```bash
-make a.out && ./a.out
+make myfs && ./myfs
 ```
 
 ## How to use?
