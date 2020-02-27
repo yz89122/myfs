@@ -37,6 +37,7 @@ struct my_partition* get_partition()
     uint32_t op;
     int32_t len;
     char* line = (char*) malloc(BUFFER_SIZE);
+    bool first_time = true;
 
     puts("\toptions:");
     puts("\t1, load from file");
@@ -49,9 +50,10 @@ struct my_partition* get_partition()
     {
         char* p;
         long num, unit = 1;
-        bool virgin = true;
-        if (virgin) virgin = false;
+        
+        if (first_time) first_time = false;
         else puts("\n\tWTF?\n");
+        
         if (op == 1)
         {
             printf("Enter the file name: ");
